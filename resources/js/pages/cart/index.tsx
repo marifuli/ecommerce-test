@@ -8,7 +8,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import AppLayout from '@/layouts/app-layout';
+import AppHeaderLayout from '@/layouts/app/app-header-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Plus, Minus, Trash2 } from 'lucide-react';
@@ -77,7 +77,7 @@ export default function CartIndex({ cart }: CartIndexProps) {
 
     const handleUpdateQuantity = (itemId: number, quantity: number) => {
         setProcessingItemId(itemId);
-        
+
         router.put(
             `/cart/items/${itemId}`,
             { quantity },
@@ -103,7 +103,7 @@ export default function CartIndex({ cart }: CartIndexProps) {
         }
 
         setProcessingItemId(itemId);
-        
+
         router.delete(`/cart/items/${itemId}`, {
             preserveScroll: true,
             onFinish: () => {
@@ -154,7 +154,7 @@ export default function CartIndex({ cart }: CartIndexProps) {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppHeaderLayout breadcrumbs={breadcrumbs}>
             <Head title="Shopping Cart" />
             <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div className="mb-4">
@@ -284,8 +284,8 @@ export default function CartIndex({ cart }: CartIndexProps) {
                                     </div>
                                 </CardContent>
                                 <CardFooter>
-                                    <Button 
-                                        className="w-full" 
+                                    <Button
+                                        className="w-full"
                                         size="lg"
                                         onClick={handleCheckout}
                                         disabled={isCheckingOut || cart.items.length === 0}
@@ -298,7 +298,7 @@ export default function CartIndex({ cart }: CartIndexProps) {
                     </div>
                 )}
             </div>
-        </AppLayout>
+        </AppHeaderLayout>
     );
 }
 

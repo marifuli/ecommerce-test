@@ -21,7 +21,7 @@ import AppHeaderLayout from '@/layouts/app/app-header-layout';
 import { type BreadcrumbItem, type SharedData } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Minus, Plus } from 'lucide-react';
 import { login, register } from '@/routes';
 
 interface Product {
@@ -52,6 +52,7 @@ export default function ProductsIndex({ products }: ProductsIndexProps) {
     const [showMessage, setShowMessage] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [showLoginDialog, setShowLoginDialog] = useState(false);
+    const [quantities, setQuantities] = useState<Record<number, number>>({});
 
     useEffect(() => {
         if (flash?.success) {
@@ -75,9 +76,13 @@ export default function ProductsIndex({ products }: ProductsIndexProps) {
 
         router.post(
             '/cart',
-            { product_id: productId },
+            { product_id: productId, quantity: quantities[productId] || 1 },
             {
                 preserveScroll: true,
+                onSuccess: () => {
+                    router.reload();
+                    setQuantities(prev => ({ ...prev, [productId]: 1 }));
+                },
                 onFinish: () => {
                     setProcessingProductId(null);
                 },
