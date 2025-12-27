@@ -19,6 +19,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('cart', [\App\Http\Controllers\CartController::class, 'index'])->name('cart.index');
     Route::post('cart', [\App\Http\Controllers\CartController::class, 'store'])->name('cart.store');
+    Route::post('cart/checkout', [\App\Http\Controllers\CartController::class, 'checkout'])->name('cart.checkout');
     Route::put('cart/items/{cartItem}', [\App\Http\Controllers\CartController::class, 'update'])->name('cart.items.update');
     Route::delete('cart/items/{cartItem}', [\App\Http\Controllers\CartController::class, 'destroy'])->name('cart.items.destroy');
 });

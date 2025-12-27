@@ -117,6 +117,42 @@ export default function CartIndex({ cart }: CartIndexProps) {
         });
     };
 
+    const [isCheckingOut, setIsCheckingOut] = useState(false);
+
+    const handleCheckout = () => {
+        if (cart.items.length === 0) {
+            setMessage({ type: 'error', text: 'Your cart is empty. Please add items before checkout.' });
+            setShowMessage(true);
+            setTimeout(() => setShowMessage(false), 3000);
+            return;
+        }
+
+        if (!confirm('Are you sure you want to proceed with checkout?')) {
+            return;
+        }
+
+        setIsCheckingOut(true);
+
+        router.post('/cart/checkout', {}, {
+            preserveScroll: false,
+            onFinish: () => {
+                setIsCheckingOut(false);
+            },
+            onError: (errors) => {
+                setIsCheckingOut(false);
+                if (errors.cart) {
+                    setMessage({ type: 'error', text: errors.cart });
+                } else if (errors.stock) {
+                    setMessage({ type: 'error', text: errors.stock });
+                } else {
+                    setMessage({ type: 'error', text: 'Checkout failed. Please try again.' });
+                }
+                setShowMessage(true);
+                setTimeout(() => setShowMessage(false), 5000);
+            },
+        });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Shopping Cart" />
@@ -248,8 +284,13 @@ export default function CartIndex({ cart }: CartIndexProps) {
                                     </div>
                                 </CardContent>
                                 <CardFooter>
-                                    <Button className="w-full" size="lg">
-                                        Proceed to Checkout
+                                    <Button 
+                                        className="w-full" 
+                                        size="lg"
+                                        onClick={handleCheckout}
+                                        disabled={isCheckingOut || cart.items.length === 0}
+                                    >
+                                        {isCheckingOut ? 'Processing...' : 'Proceed to Checkout'}
                                     </Button>
                                 </CardFooter>
                             </Card>

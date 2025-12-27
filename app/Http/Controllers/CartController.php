@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\CheckLowStock;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\Product;
+use App\Models\Sale;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -158,5 +161,79 @@ class CartController extends Controller
         $cartItem->delete();
 
         return redirect()->back()->with('success', 'Item removed from cart.');
+    }
+
+    /**
+     * Process checkout and complete the order.
+     */
+    public function checkout(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+        
+        $cart = Cart::with(['cartItems.product'])
+            ->where('user_id', $user->id)
+            ->first();
+
+        // Validate cart exists and has items
+        if (!$cart || $cart->cartItems->isEmpty()) {
+            throw ValidationException::withMessages([
+                'cart' => 'Your cart is empty. Please add items before checkout.',
+            ]);
+        }
+
+        // Validate stock availability for all items
+        $stockErrors = [];
+        foreach ($cart->cartItems as $item) {
+            if ($item->quantity > $item->product->stock_quantity) {
+                $stockErrors[] = "Insufficient stock for {$item->product->name}. Only {$item->product->stock_quantity} available, but {$item->quantity} requested.";
+            }
+        }
+
+        if (!empty($stockErrors)) {
+            $errorMessage = implode(' ', $stockErrors);
+            throw ValidationException::withMessages([
+                'stock' => $errorMessage,
+            ]);
+        }
+
+        // Process checkout in a transaction
+        $lowStockThreshold = 5;
+        $lowStockProducts = [];
+
+        DB::transaction(function () use ($cart, $user, $lowStockThreshold, &$lowStockProducts) {
+            foreach ($cart->cartItems as $item) {
+                $product = $item->product;
+                
+                // Reduce stock
+                $product->decrement('stock_quantity', $item->quantity);
+                
+                // Refresh product to get updated stock quantity
+                $product->refresh();
+                
+                // Check if product is now low in stock
+                if ($product->stock_quantity <= $lowStockThreshold) {
+                    $lowStockProducts[] = $product;
+                }
+                
+                // Record sale
+                Sale::create([
+                    'user_id' => $user->id,
+                    'product_id' => $product->id,
+                    'quantity' => $item->quantity,
+                    'price' => $product->price,
+                    'total' => (float) $product->price * $item->quantity,
+                ]);
+            }
+            
+            // Clear cart items
+            $cart->cartItems()->delete();
+        });
+
+        // Dispatch low stock notification jobs for products that are low in stock
+        foreach ($lowStockProducts as $product) {
+            CheckLowStock::dispatch($product, $lowStockThreshold);
+        }
+
+        return redirect()->route('cart.index')->with('success', 'Checkout completed successfully! Thank you for your purchase.');
     }
 }
