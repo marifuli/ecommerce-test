@@ -120,9 +120,9 @@ class CartController extends Controller
         $user = $request->user();
 
         // Ensure the cart item belongs to the user's cart
-        $cart = Cart::where('user_id', $user->id)->firstOrFail();
+        $cart = $cartItem->cart;
         
-        if ($cartItem->cart_id !== $cart->id) {
+        if ($cart->user_id !== $user->id) {
             abort(403, 'Unauthorized action.');
         }
 
@@ -152,9 +152,9 @@ class CartController extends Controller
         $user = $request->user();
 
         // Ensure the cart item belongs to the user's cart
-        $cart = Cart::where('user_id', $user->id)->firstOrFail();
+        $cart = $cartItem->cart;
         
-        if ($cartItem->cart_id !== $cart->id) {
+        if ($cart->user_id !== $user->id) {
             abort(403, 'Unauthorized action.');
         }
 
