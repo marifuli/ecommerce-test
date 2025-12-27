@@ -11,6 +11,5 @@ Artisan::command('inspire', function () {
 
 // Schedule daily sales report to run every day at 9:00 AM
 Schedule::command('sales:daily-report')
-    ->dailyAt('09:00')
-    ->timezone('UTC')
+    ->dailyAt('20:00')
     ->description('Send daily sales report to admin');

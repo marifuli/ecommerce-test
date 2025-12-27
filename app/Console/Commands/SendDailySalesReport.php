@@ -30,11 +30,11 @@ class SendDailySalesReport extends Command
     {
         // Get the date for the report (defaults to yesterday)
         $dateOption = $this->option('date');
-        
+
         if ($dateOption) {
             $reportDate = \Carbon\Carbon::parse($dateOption)->startOfDay();
         } else {
-            $reportDate = \Carbon\Carbon::yesterday()->startOfDay();
+            $reportDate = \Carbon\Carbon::now()->startOfDay();
         }
 
         $endDate = $reportDate->copy()->endOfDay();
@@ -81,7 +81,7 @@ class SendDailySalesReport extends Command
 
         // Send email
         $adminEmail = env('ADMIN_EMAIL', 'admin@example.com');
-        
+
         try {
             Mail::to($adminEmail)->send(
                 new DailySalesReport(
