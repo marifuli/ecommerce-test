@@ -3,15 +3,15 @@
 use App\Models\Product;
 use App\Models\User;
 
-test('guests cannot access products page', function () {
-    $this->get(route('products.index'))->assertRedirect(route('login'));
+test('guests can access products page', function () {
+    $this->get(route('home'))->assertOk();
 });
 
 test('authenticated users can view products page', function () {
     $user = User::factory()->create();
     Product::factory()->count(5)->create();
 
-    $response = $this->actingAs($user)->get(route('products.index'));
+    $response = $this->actingAs($user)->get(route('home'));
 
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page
@@ -28,7 +28,7 @@ test('products page shows product details', function () {
         'stock_quantity' => 10,
     ]);
 
-    $response = $this->actingAs($user)->get(route('products.index'));
+    $response = $this->actingAs($user)->get(route('home'));
 
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page
@@ -43,7 +43,7 @@ test('products page shows product details', function () {
 test('products page shows empty state when no products exist', function () {
     $user = User::factory()->create();
 
-    $response = $this->actingAs($user)->get(route('products.index'));
+    $response = $this->actingAs($user)->get(route('home'));
 
     $response->assertOk();
     $response->assertInertia(fn ($page) => $page
