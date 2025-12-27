@@ -309,6 +309,272 @@ To run the Product seeder and populate the database with sample products:
 
 This will create 10 sample products with random names, prices between $9.99 and $999.99, and stock quantities between 0 and 500.
 
+## Daily Sales Report System
+
+The application includes an automated daily sales report system that tracks sales and sends email summaries to administrators.
+
+### Sales Tracking
+
+Sales are tracked using the `sales` table, which records:
+- `user_id`: The customer who made the purchase
+- `product_id`: The product that was sold
+- `quantity`: Number of units sold
+- `price`: Price per unit at time of sale
+- `total`: Total sale amount (quantity × price)
+- `created_at`: Timestamp of the sale
+
+### Migration
+
+The sales table migration (`database/migrations/2025_12_27_090544_create_sales_table.php`):
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('sales', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('product_id')->constrained()->onDelete('cascade');
+            $table->integer('quantity');
+            $table->decimal('price', 10, 2);
+            $table->decimal('total', 10, 2);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('sales');
+    }
+};
+```
+
+### Model
+
+The Sale model (`app/Models/Sale.php`):
+
+```php
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class Sale extends Model
+{
+    protected $fillable = [
+        'user_id',
+        'product_id',
+        'quantity',
+        'price',
+        'total',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'price' => 'decimal:2',
+            'total' => 'decimal:2',
+        ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+}
+```
+
+### Scheduled Job
+
+The daily sales report is handled by the `SendDailySalesReport` command (`app/Console/Commands/SendDailySalesReport.php`):
+
+```php
+<?php
+
+namespace App\Console\Commands;
+
+use App\Mail\DailySalesReport;
+use App\Models\Sale;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Mail;
+
+class SendDailySalesReport extends Command
+{
+    protected $signature = 'sales:daily-report {--date= : The date to generate report for (Y-m-d format, defaults to yesterday)}';
+    protected $description = 'Generate and send daily sales report to admin';
+
+    public function handle()
+    {
+        // Get the date for the report (defaults to yesterday)
+        $dateOption = $this->option('date');
+        
+        if ($dateOption) {
+            $reportDate = \Carbon\Carbon::parse($dateOption)->startOfDay();
+        } else {
+            $reportDate = \Carbon\Carbon::yesterday()->startOfDay();
+        }
+
+        $endDate = $reportDate->copy()->endOfDay();
+
+        // Get all sales for the specified date
+        $sales = Sale::with(['product', 'user'])
+            ->whereBetween('created_at', [$reportDate, $endDate])
+            ->get();
+
+        // Aggregate sales by product
+        $salesData = [];
+        $totalRevenue = 0;
+        $totalItemsSold = 0;
+
+        foreach ($sales as $sale) {
+            $productId = $sale->product_id;
+            $productName = $sale->product->name;
+
+            if (!isset($salesData[$productId])) {
+                $salesData[$productId] = [
+                    'product_id' => $productId,
+                    'product_name' => $productName,
+                    'quantity_sold' => 0,
+                    'revenue' => 0,
+                ];
+            }
+
+            $salesData[$productId]['quantity_sold'] += $sale->quantity;
+            $salesData[$productId]['revenue'] += (float) $sale->total;
+            $totalRevenue += (float) $sale->total;
+            $totalItemsSold += $sale->quantity;
+        }
+
+        // Send email
+        $adminEmail = env('ADMIN_EMAIL', 'admin@example.com');
+        
+        Mail::to($adminEmail)->send(
+            new DailySalesReport(
+                $salesData,
+                $reportDate->format('Y-m-d'),
+                $totalRevenue,
+                $totalItemsSold
+            )
+        );
+
+        return Command::SUCCESS;
+    }
+}
+```
+
+### Mailable Class
+
+The `DailySalesReport` Mailable (`app/Mail/DailySalesReport.php`):
+
+```php
+<?php
+
+namespace App\Mail;
+
+use Illuminate\Bus\Queueable;
+use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Queue\SerializesModels;
+
+class DailySalesReport extends Mailable
+{
+    use Queueable, SerializesModels;
+
+    public function __construct(
+        public array $salesData,
+        public string $reportDate,
+        public float $totalRevenue,
+        public int $totalItemsSold
+    ) {
+        //
+    }
+
+    public function envelope(): Envelope
+    {
+        return new Envelope(
+            subject: 'Daily Sales Report - ' . $this->reportDate,
+        );
+    }
+
+    public function content(): Content
+    {
+        return new Content(
+            view: 'emails.daily-sales-report',
+        );
+    }
+}
+```
+
+### Scheduler Configuration
+
+The scheduler is configured in `routes/console.php` (Laravel 11):
+
+```php
+<?php
+
+use Illuminate\Support\Facades\Schedule;
+
+// Schedule daily sales report to run every day at 9:00 AM
+Schedule::command('sales:daily-report')
+    ->dailyAt('09:00')
+    ->timezone('UTC')
+    ->description('Send daily sales report to admin');
+```
+
+### Manual Testing
+
+To manually trigger the daily sales report:
+
+1. **Run for yesterday (default)**:
+   ```bash
+   php artisan sales:daily-report
+   ```
+
+2. **Run for a specific date**:
+   ```bash
+   php artisan sales:daily-report --date=2025-12-26
+   ```
+
+3. **Run the scheduler manually** (to test all scheduled tasks):
+   ```bash
+   php artisan schedule:run
+   ```
+
+### Setting Up the Scheduler
+
+To enable the scheduler in production, add this cron entry to your server:
+
+```bash
+* * * * * cd /path-to-your-project && php artisan schedule:run >> /dev/null 2>&1
+```
+
+This will run the scheduler every minute, and Laravel will execute scheduled tasks at their designated times.
+
+### Configuration
+
+Make sure to set the admin email in your `.env` file:
+
+```env
+ADMIN_EMAIL=admin@example.com
+```
+
+The report will be sent to this email address daily at 9:00 AM UTC.
+
 ## Next Steps for Ecommerce Features
 
 This project provides a solid foundation. To extend it into a full ecommerce application, consider adding:
