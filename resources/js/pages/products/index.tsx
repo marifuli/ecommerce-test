@@ -7,12 +7,22 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import AppLayout from '@/layouts/app-layout';
-import { type BreadcrumbItem } from '@/types';
-import { Head, router, usePage } from '@inertiajs/react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import AppHeaderLayout from '@/layouts/app/app-header-layout';
+import { type BreadcrumbItem, type SharedData } from '@/types';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { login, register } from '@/routes';
 
 interface Product {
     id: number;
@@ -21,7 +31,7 @@ interface Product {
     stock_quantity: number;
 }
 
-interface ProductsIndexProps {
+interface ProductsIndexProps extends SharedData {
     products: Product[];
     flash?: {
         success?: string;
@@ -37,10 +47,11 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function ProductsIndex({ products }: ProductsIndexProps) {
-    const { flash } = usePage<ProductsIndexProps>().props;
+    const { auth, flash } = usePage<ProductsIndexProps>().props;
     const [processingProductId, setProcessingProductId] = useState<number | null>(null);
     const [showMessage, setShowMessage] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [showLoginDialog, setShowLoginDialog] = useState(false);
 
     useEffect(() => {
         if (flash?.success) {
@@ -55,8 +66,13 @@ export default function ProductsIndex({ products }: ProductsIndexProps) {
     }, [flash]);
 
     const handleAddToCart = (productId: number) => {
+        if (!auth.user) {
+            setShowLoginDialog(true);
+            return;
+        }
+
         setProcessingProductId(productId);
-        
+
         router.post(
             '/cart',
             { product_id: productId },
@@ -77,7 +93,7 @@ export default function ProductsIndex({ products }: ProductsIndexProps) {
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppHeaderLayout>
             <Head title="Products" />
             <div className="flex h-full flex-1 flex-col gap-4 overflow-x-auto rounded-xl p-4">
                 <div className="mb-4">
@@ -137,8 +153,8 @@ export default function ProductsIndex({ products }: ProductsIndexProps) {
                                         {processingProductId === product.id
                                             ? 'Adding...'
                                             : product.stock_quantity === 0
-                                            ? 'Out of Stock'
-                                            : 'Add to Cart'}
+                                                ? 'Out of Stock'
+                                                : 'Add to Cart'}
                                     </Button>
                                 </CardFooter>
                             </Card>
@@ -146,7 +162,31 @@ export default function ProductsIndex({ products }: ProductsIndexProps) {
                     </div>
                 )}
             </div>
-        </AppLayout>
+
+            <Dialog open={showLoginDialog} onOpenChange={setShowLoginDialog}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Login Required</DialogTitle>
+                        <DialogDescription>
+                            To add products to your cart and make purchases, please login or create an account.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                            You need to be logged in to add items to your cart.
+                        </p>
+                        <div className="flex space-x-2">
+                            <Button asChild>
+                                <Link href={login()}>Login</Link>
+                            </Button>
+                            <Button variant="outline" asChild>
+                                <Link href={register()}>Create Account</Link>
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </AppHeaderLayout>
     );
 }
 
