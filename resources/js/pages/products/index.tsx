@@ -141,7 +141,51 @@ export default function ProductsIndex({ products }: ProductsIndexProps) {
                                         ${parseFloat(product.price).toFixed(2)}
                                     </div>
                                 </CardContent>
-                                <CardFooter>
+                                <CardFooter className="flex flex-col gap-2">
+                                    <div className="flex items-center justify-center gap-2">
+                                        <span className="text-sm text-muted-foreground">Qty:</span>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => {
+                                                const currentQty = quantities[product.id] || 1;
+                                                if (currentQty > 1) {
+                                                    setQuantities(prev => ({ ...prev, [product.id]: currentQty - 1 }));
+                                                }
+                                            }}
+                                            disabled={product.stock_quantity === 0 || (quantities[product.id] || 1) <= 1}
+                                        >
+                                            <Minus className="h-4 w-4" />
+                                        </Button>
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            max={product.stock_quantity}
+                                            value={quantities[product.id] || 1}
+                                            onChange={(e) => {
+                                                const value = parseInt(e.target.value) || 1;
+                                                const clampedValue = Math.max(1, Math.min(value, product.stock_quantity));
+                                                setQuantities(prev => ({ ...prev, [product.id]: clampedValue }));
+                                            }}
+                                            className="h-8 w-16 text-center"
+                                            disabled={product.stock_quantity === 0}
+                                        />
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            onClick={() => {
+                                                const currentQty = quantities[product.id] || 1;
+                                                if (currentQty < product.stock_quantity) {
+                                                    setQuantities(prev => ({ ...prev, [product.id]: currentQty + 1 }));
+                                                }
+                                            }}
+                                            disabled={product.stock_quantity === 0 || (quantities[product.id] || 1) >= product.stock_quantity}
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
                                     <Button
                                         onClick={() => handleAddToCart(product.id)}
                                         disabled={

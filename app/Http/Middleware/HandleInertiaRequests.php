@@ -45,7 +45,37 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            'cart' => $this->get_cart_data($request),
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    private function get_cart_data(Request $request)
+    {
+        $cartData = null;
+        if ($request->user()) {
+            $cart = \App\Models\Cart::with('cartItems')
+                ->where('user_id', $request->user()->id)
+                ->first();
+            if ($cart) {
+                $cartData = [
+                    'id' => $cart->id,
+                    'cart_items' => $cart->cartItems->map(function ($item) {
+                        return [
+                            'id' => $item->id,
+                            'product_id' => $item->product_id,
+                            'quantity' => $item->quantity,
+                        ];
+                    })->toArray(),
+                ];
+            } else {
+                // Return empty cart structure if cart doesn't exist yet
+                $cartData = [
+                    'id' => null,
+                    'cart_items' => [],
+                ];
+            }
+        }
+        return $cartData;
     }
 }

@@ -64,15 +64,24 @@ class CartController extends Controller
     {
         $validated = $request->validate([
             'product_id' => ['required', 'integer', 'exists:products,id'],
+            'quantity' => ['sometimes', 'integer', 'min:1'],
         ]);
 
         $user = $request->user();
         $product = Product::findOrFail($validated['product_id']);
+        $quantity = $validated['quantity'] ?? 1;
 
         // Check if product has stock
         if ($product->stock_quantity === 0) {
             throw ValidationException::withMessages([
                 'product_id' => 'This product is out of stock.',
+            ]);
+        }
+
+        // Check if requested quantity exceeds stock
+        if ($quantity > $product->stock_quantity) {
+            throw ValidationException::withMessages([
+                'product_id' => 'Cannot add ' . $quantity . ' items. Only ' . $product->stock_quantity . ' available in stock.',
             ]);
         }
 
@@ -87,8 +96,8 @@ class CartController extends Controller
             ->first();
 
         if ($cartItem) {
-            // Product already in cart, increment quantity
-            $newQuantity = $cartItem->quantity + 1;
+            // Product already in cart, add to existing quantity
+            $newQuantity = $cartItem->quantity + $quantity;
 
             // Check if new quantity exceeds stock
             if ($newQuantity > $product->stock_quantity) {
@@ -104,7 +113,7 @@ class CartController extends Controller
             CartItem::create([
                 'cart_id' => $cart->id,
                 'product_id' => $product->id,
-                'quantity' => 1,
+                'quantity' => $quantity,
             ]);
             $message = 'Product added to cart successfully.';
         }

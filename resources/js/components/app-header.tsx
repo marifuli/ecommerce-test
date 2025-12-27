@@ -60,7 +60,9 @@ export function AppHeader({ breadcrumbs = [] }: AppHeaderProps) {
     const page = usePage<SharedData>();
     const { auth } = page.props;
     const cart = (page.props as any).cart;
-    const cartItemCount = cart?.cart_items?.reduce((sum: number, item: any) => sum + (item.quantity || 1), 0) || 0;
+    const cartItems = cart?.cart_items || [];
+
+    const cartItemCount = cartItems.reduce((sum: number, item: any) => sum + (item?.quantity || 0), 0);
     const getInitials = useInitials();
     return (
         <>
